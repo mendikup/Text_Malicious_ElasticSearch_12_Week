@@ -1,4 +1,5 @@
 import json
+from utils.utils import Utils
 
 from core.loader import DataLoader
 from core.elastic_connector import Elastic_Connector
@@ -13,11 +14,17 @@ class Manager:
         self.analyzer = Analyzer()
 
     def run(self):
-        data = self.loader.load_data()
-        self.es.mapping_and_index_data(data,index_name ="tweets")
+        df = self.loader.load_data()
+        # Apply date parsing correctly
+        df["CreateDate"] = df["CreateDate"].apply(Utils.parsar_date)
+        # Add empty sentiment + weapons
+        df["sentiment"] = ""
+        df["weapons"] = [[] for _ in range(len(df))]
+        self.es.mapping_and_index_data(df,index_name ="tweets")
+
 
         # data = self.get_all_data()
-        data = self.find_sentiment_in_document(data)
+        # data = self.find_sentiment_in_document(data)
         # self.es.update_document(sentiment, weapons_detected)
         # self.es.delete_irrelevant_documents()
 
@@ -49,5 +56,6 @@ class Manager:
 
 
 
-
+m = Manager()
+m.run()
 

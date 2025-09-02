@@ -12,7 +12,6 @@ class DataLoader:
     def load_data(self):
         df = pd.read_csv(self.path)
         df["Antisemitic"] = df["Antisemitic"].astype(bool)
-        df =df.to_dict(orient= "records")
         return df
 
     @staticmethod

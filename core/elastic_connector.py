@@ -1,5 +1,4 @@
 import json
-from email import parser
 from pprint import pprint
 from dateutil import parser
 from loader import DataLoader
@@ -14,7 +13,10 @@ class Elastic_Connector:
         self.es = Elasticsearch('http://localhost:9200')
 
 
-    def mapping_and_index_data(self, data,index_name):
+    def mapping_and_index_data(self, df,index_name):
+
+        data =df.to_dict(orient= "records")
+
 
         # Delete index if it already exists
         self.es.indices.delete(index=index_name, ignore_unavailable=True)
@@ -46,12 +48,6 @@ class Elastic_Connector:
                     }
                 },
             )
-
-        # creates nwe fields to use later
-        for doc in data:
-            doc['CreateDate'] = self._parsar_date(doc['CreateDate'])
-            doc["sentiment"] = ""
-            doc["weapons"] = []
 
         actions = [
             {
@@ -106,3 +102,4 @@ class Elastic_Connector:
 
     def update_document(self,sentiment,weapons_detected):
         pass
+
