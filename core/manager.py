@@ -2,60 +2,68 @@ import json
 from utils.utils import Utils
 
 from core.loader import DataLoader
-from core.elastic_connector import Elastic_Connector
+from core.dal import Dal
 from core.analyzer import Analyzer
+from core.preprocessing import Preprocessing
 
 
 class Manager:
+    """
+    Orchestrator class that connects all components:
+    Loader -> Preprocessing -> DAL -> Analyzer.
+    """
 
     def __init__(self):
+        """Initialize Loader, Preprocessing, DAL, and Analyzer objects."""
         self.loader = DataLoader()
-        self.es = Elastic_Connector()
+        df = self.loader.load_data()
+        self.preprocessing = Preprocessing(df)
+        self.dal = Dal()
         self.analyzer = Analyzer()
 
     def run(self):
-        df = self.loader.load_data()
-        # Apply date parsing correctly
-        df["CreateDate"] = df["CreateDate"].apply(Utils.parsar_date)
-        # Add empty sentiment + weapons
-        df["sentiment"] = ""
-        df["weapons"] = [[] for _ in range(len(df))]
-        self.es.mapping_and_index_data(df,index_name ="tweets")
+        """
+        Run the main data pipeline:
+        . Preprocess the data
+        . Index the data into Elasticsearch
+        . Retrieve and analyze documents
+        . Update documents with new fields
+        """
+        # Preprocess
+        self.preprocessing.prepare_data()
+        df = self.preprocessing.get_preprocessed_data()
+
+        # Create mapping & index data
+        self.dal.map_and_index_data(df, index_name="tweets")
+
+        # Retrieve all docs & analyze sentiment
+        docs = self.dal.get_all_data()
+        docs = self.analyzer.find_sentiments_in_documents(docs)
+
+        # Step 4: Update Elasticsearch with new sentiment field
+        self.dal.update_sentiment_field(docs)
+
+        results = self.analyzer.find_weapons_ids()
+        self.dal.update_weapons_field(results)
+
+        data =  self.dal.get_all_data()
+        print(json.dumps(data, indent=4))
 
 
-        # data = self.get_all_data()
-        # data = self.find_sentiment_in_document(data)
-        # self.es.update_document(sentiment, weapons_detected)
-        # self.es.delete_irrelevant_documents()
-
-    def get_all_data(self):
-        data = self.es.get_all_data()
-        return data
-
-    def find_sentiment_in_document(self,data):
-        for doc in data:
-            sentiment = self.analyzer.find_sentiment(doc["text"])
-            doc["sentiment"] = sentiment
 
 
-
-
+        # self.dal.delete_irrelevant_documents()
 
     def get_antisemitic_tweets_with_weapons(self):
-        pass
-        # self.es.get_antisemitic_tweets_with_weapons()
-
+        """Proxy to DAL method for retrieving antisemitic tweets with weapons."""
+        self.dal.get_antisemitic_tweets_with_weapons()
 
     def get_sensitive_tweets_with_two_weapons(self):
-        pass
+        """Proxy to DAL method for retrieving sensitive tweets with two weapons."""
+        self.dal.get_sensitive_tweets_with_two_weapons()
 
 
-
-
-
-
-
-
-m = Manager()
-m.run()
-
+# Run the pipeline
+if __name__ == "__main__":
+    m = Manager()
+    m.run()
