@@ -91,7 +91,6 @@ class Dal:
             logger.info(f"Updated {success} documents successfully")
             if errors:
                 logger.error(f"Update had {len(errors)} errors")
-                # הצג כמה שגיאות לדוגמה
                 for error in errors[:3]:
                     logger.error(f"Update error: {error}")
 

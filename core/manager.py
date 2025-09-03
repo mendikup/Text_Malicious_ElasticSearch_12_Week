@@ -37,14 +37,14 @@ class Manager:
         # Step 2: Index data
         logger.info("Step 2: Indexing to Elasticsearch")
         self.dal.map_and_index_data(df, index_name="tweets")
-        time.sleep(2)  # חכה שהindexing יסתיים
+        time.sleep(2)  # wait for the index processing to end
 
         # Step 3: Get data and analyze sentiment
         logger.info("Step 3: Sentiment analysis")
         docs = self.dal.get_all_data()
         docs = self.analyzer.find_sentiments_in_documents(docs)
 
-        # בדיקה אחרי הניתוח
+        # check after analyzing
         with_sentiment_after = len([d for d in docs if d.get("sentiment")])
         logger.info(f"After analysis: {with_sentiment_after} docs have sentiment")
 

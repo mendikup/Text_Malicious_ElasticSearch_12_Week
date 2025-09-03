@@ -19,7 +19,7 @@ class Preprocessing:
         self.df["sentiment"] = ""
         self.df["weapons"] = [[] for _ in range(len(self.df))]
 
-        # בדיקה פשוטה
+        # simple check
         text_count = len(self.df[self.df["text"].notna() & (self.df["text"] != "")])
         logger.info(f"Preparation done: {len(self.df)} total, {text_count} with text")
 
@@ -31,4 +31,4 @@ class Preprocessing:
             return None
 
 
-# דוגמה לשימוש פשוט:
+
