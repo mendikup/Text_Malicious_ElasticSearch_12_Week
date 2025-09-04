@@ -2,15 +2,17 @@ import json
 from loader import DataLoader
 from elasticsearch import Elasticsearch, helpers
 from utils.simple_logger import logger
+from utils.utils import Utils
 
 
-class Dal:
+class DAL:
     """Data Access Layer (DAL) for interacting with Elasticsearch."""
 
     def __init__(self):
         """Initialize connection to Elasticsearch server."""
         self.es = Elasticsearch('http://localhost:9200')
         if self.es.ping():
+
             logger.info("Connected to Elasticsearch successfully")
         else:
             logger.error("Failed to connect to Elasticsearch")
@@ -131,3 +133,44 @@ class Dal:
             size=10000
         )
         return [hit["_id"] for hit in res["hits"]["hits"]]
+
+    def find_and_delete_irrelevant_documents(self):
+        irrelevant_documents = self._find_irrelevant_documents()
+        self._delete_irrelevant_documents(irrelevant_documents)
+
+
+    def _find_irrelevant_documents(self):
+        weapons_list = Utils.load_black_list()
+        res = self.es.search(
+            index="tweets",
+            body={
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"Antisemitic": False}},
+                            {"bool": {"must_not": {"terms": {"weapons": weapons_list}}}}
+                        ]
+                    }
+                }
+            },
+            size=10000,
+            _source=False  #we need the IDs only
+
+        )
+        return res
+
+    def _delete_irrelevant_documents(self, irrelevant_documents):
+        """
+        Delete documents that are NOT antisemitic and do not contain weapons.
+        """
+        ids = [hit["_id"] for hit in irrelevant_documents["hits"]["hits"]]
+        actions = [
+            {"_op_type": "delete", "_index": "tweets", "_id": doc_id}
+            for doc_id in ids
+        ]
+        if actions:
+
+            success_count, errors = helpers.bulk(self.es, actions, stats_only=False, raise_on_error=False)
+            logger.info(f" Deleted {success_count} documents")
+            if errors:
+                logger.info(f" {len(errors)} errors occurred")

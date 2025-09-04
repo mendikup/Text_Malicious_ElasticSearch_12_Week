@@ -14,15 +14,5 @@ class DataLoader:
         df["Antisemitic"] = df["Antisemitic"].astype(bool)
         return df
 
-    @staticmethod
-    def load_black_list():
-        """Load a list of weapons from a text file."""
-        base_path = os.path.dirname(os.path.abspath(__file__))
-        path = os.path.join(base_path, "weapons_list.txt")
-        with open(path, mode="r", encoding="utf-8") as f:
-            data = f.read()
-        return data.splitlines()
 
 
-# d= DataLoader()
-# d.load_data()
