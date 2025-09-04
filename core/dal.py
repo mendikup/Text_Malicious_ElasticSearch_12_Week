@@ -1,9 +1,12 @@
 import json
+import time
+from utils.utils import Utils
+
 from loader import DataLoader
 from elasticsearch import Elasticsearch, helpers
 
 
-class Dal:
+class DAL:
     """
     Data Access Layer (DAL) for interacting with Elasticsearch.
     Provides methods for indexing, updating, deleting and retrieving documents.
@@ -59,23 +62,74 @@ class Dal:
         docs = [{"_id": hit["_id"], **hit["_source"]} for hit in res["hits"]["hits"]]
         return docs
 
-    def delete_irrelevant_documents(self):
-        """
-        Delete documents that are NOT antisemitic and do not contain weapons.
-
-        :return: Elasticsearch response
-        """
-        weapons_list = DataLoader.load_black_list()
-        res = self.es.delete_by_query(
+    def find_irrelevant_documents(self):
+        weapons_list = Utils.load_black_list()
+        res = self.es.search(
             index="tweets",
             body={
-                "bool": {
-                    "must": [{"term": {"Antisemitic": False}}],
-                    "must_not": [{"bool": {"should": [{"terms": {"weapons": weapons_list}}]}}],
+                "query": {
+                    "bool": {
+                        "filter": [
+                            {"term": {"Antisemitic": False}},
+                            {"bool": {"must_not": {"terms": {"weapons": weapons_list}}}}
+                        ]
+                    }
                 }
             },
+            size=10000,
+            _source=False  #we need the IDs only
+
         )
         return res
+
+    def delete_irrelevant_documents(self, irrelevant_documents):
+        """
+        Delete documents that are NOT antisemitic and do not contain weapons.
+        """
+        ids = [hit["_id"] for hit in irrelevant_documents["hits"]["hits"]]
+        actions = [
+            {"_op_type": "delete", "_index": "tweets", "_id": doc_id}
+            for doc_id in ids
+        ]
+
+        start = time.time()
+        success_count, errors = helpers.bulk(self.es, actions)
+
+        end = time.time()
+        print(f"delete_irrelevant_documents took {end - start:.2f} seconds")
+
+        print(f" Deleted {success_count} documents")
+        if errors:
+            print(f" {len(errors)} errors occurred")
+        return success_count, errors
+
+
+        # start = time.time()
+        #
+        # weapons_list = Utils.load_black_list()
+        # res = self.es.delete_by_query(
+        #     index="tweets",
+        #     body={
+        #         "query": {
+        #             "bool": {
+        #                 "filter": [
+        #                     {"term": {"Antisemitic": False}},
+        #                     {"bool": {"must_not": {"terms": {"weapons": weapons_list}}}}
+        #                 ]
+        #             }
+        #         }
+        #     },
+        #     conflicts="proceed"
+        # )
+        #
+        # deleted = res["deleted"]
+        # conflicts = res.get("version_conflicts", 0)
+        # print(f"🗑️ Deleted {deleted} documents")
+        # print(f"⚠️ Skipped {conflicts} documents due to conflicts")
+        # end = time.time()
+        # print(f"delete_irrelevant_documents took {end - start:.2f} seconds")
+        #
+        # return res
 
     def get_doc_ids_with_weapon(self, weapon: str):
         """

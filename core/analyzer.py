@@ -2,7 +2,7 @@ import json
 import os
 from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from utils.utils import Utils
-from core.dal import Dal
+from core.dal import DAL
 
 
 
@@ -11,7 +11,7 @@ class Analyzer:
     """Provide basic NLP utilities for enrichment."""
 
     def __init__(self):
-        self.dal =Dal()
+        self.dal =DAL()
 
 
     def find_sentiment(self ,txt) -> str:

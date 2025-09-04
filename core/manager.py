@@ -1,8 +1,10 @@
 import json
+import time
+
 from utils.utils import Utils
 
 from core.loader import DataLoader
-from core.dal import Dal
+from core.dal import DAL
 from core.analyzer import Analyzer
 from core.preprocessing import Preprocessing
 
@@ -17,8 +19,10 @@ class Manager:
         """Initialize Loader, Preprocessing, DAL, and Analyzer objects."""
         self.loader = DataLoader()
         df = self.loader.load_data()
+        print(f"len of the df1:  {len(df)}")
+
         self.preprocessing = Preprocessing(df)
-        self.dal = Dal()
+        self.dal = DAL()
         self.analyzer = Analyzer()
 
     def run(self):
@@ -32,27 +36,41 @@ class Manager:
         # Preprocess
         self.preprocessing.prepare_data()
         df = self.preprocessing.get_preprocessed_data()
+        print(f"len of the df: {len(df)}")
 
-        # Create mapping & index data
+        # Index data
         self.dal.map_and_index_data(df, index_name="tweets")
 
+        # 🔧 תיקון: המתן ו-refresh
+
+        self.dal.es.indices.refresh(index="tweets")
+
+        # Check indexing success
+        indexed_count = self.dal.es.count(index="tweets")["count"]
+        print(f"Actually indexed: {indexed_count} documents")
+
+        # אם לא כל המסמכים נכנסו - יש בעיה!
+        if indexed_count != len(df):
+            print(f"⚠️ WARNING: {len(df) - indexed_count} documents missing!")
         # Retrieve all docs & analyze sentiment
         docs = self.dal.get_all_data()
+        print(f"len of the docs:  {len(docs)}")
+
         docs = self.analyzer.find_sentiments_in_documents(docs)
 
         # Step 4: Update Elasticsearch with new sentiment field
         self.dal.update_sentiment_field(docs)
+        self.dal.es.indices.refresh(index="tweets")
 
         results = self.analyzer.find_weapons_ids()
         self.dal.update_weapons_field(results)
 
         data =  self.dal.get_all_data()
-        print(json.dumps(data, indent=4))
+        print(f"len of the data:  {len(data)}")
+        print(json.dumps(data,indent=4))
 
-
-
-
-        # self.dal.delete_irrelevant_documents()
+        irrelevant_documents=self.dal.find_irrelevant_documents()
+        self.dal.delete_irrelevant_documents(irrelevant_documents)
 
     def get_antisemitic_tweets_with_weapons(self):
         """Proxy to DAL method for retrieving antisemitic tweets with weapons."""
